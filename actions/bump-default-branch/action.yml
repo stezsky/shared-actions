@@ -24,6 +24,8 @@ runs:
         releasedMajorVersion=$(echo ${{ inputs.released-version }} | cut -d'.' -f1)
         releasedMinorVersion=$(echo ${{ inputs.released-version }} | cut -d'.' -f2)
         
+        echo "Version: ${currentMajorVersion}.${currentMinorVersion} vs ${releasedMajorVersion}.${releasedMinorVersion}"
+                
         if [[ "${releasedMajorVersion}.${releasedMinorVersion}" == "${currentMajorVersion}.${currentMinorVersion}" ]]; then
           echo "incrementDefaultBranchVersion=true" >> $GITHUB_ENV
         else

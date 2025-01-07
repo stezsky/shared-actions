@@ -4,6 +4,7 @@ author: 'petr.steckovic@vodafone.com'
 inputs:
   released-version:
     description: Version has been released
+    required: true
 
 runs:
   using: 'composite'

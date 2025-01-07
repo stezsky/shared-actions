@@ -18,10 +18,13 @@ runs:
       shell: bash
       run: |
         currentVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-        majorVersion=$(echo $currentVersion | cut -d'.' -f1)
-        minorVersion=$(echo $currentVersion | cut -d'.' -f2)
+        currentMajorVersion=$(echo $currentVersion | cut -d'.' -f1)
+        currentMinorVersion=$(echo $currentVersion | cut -d'.' -f2)
+
+        releasedMajorVersion=$(echo ${{ inputs.released-version }} | cut -d'.' -f1)
+        releasedMinorVersion=$(echo ${{ inputs.released-version }} | cut -d'.' -f2)
         
-        if [[ "${{ inputs.released-version }}" == "${majorVersion}.${minorVersion}" ]]; then
+        if [[ "${releasedMajorVersion}.${releasedMinorVersion}" == "${currentMajorVersion}.${currentMinorVersion}" ]]; then
           echo "incrementDefaultBranchVersion=true" >> $GITHUB_ENV
         else
           echo "No increment required"

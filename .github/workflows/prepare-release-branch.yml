@@ -1,0 +1,14 @@
+name: Release Workflow
+
+on:
+  push:
+    tags:
+      - "r*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare release branch
+        id: maven-release
+        uses: stezsky/shared-actions/actions/prepare-release-branch@main

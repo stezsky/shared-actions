@@ -1,0 +1,62 @@
+name: 'Setup Maven Build'
+description: 'Setup build environment for Maven/Java'
+author: 'petr.steckovic@vodafone.com'
+inputs:
+  maven-version:
+    description: 'Maven version'
+    required: true
+    default: '3.9.9'
+  java-version:
+    description: 'Java version'
+    required: true
+    default: '17'
+  java-distribution:
+    description: 'Java Distribution'
+    required: true
+    default: 'temurin'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: ${{ inputs.java-distribution }}
+        java-version: ${{ inputs.java-version }}
+        #cache: 'maven' ## FIXME maven cache disabled
+    - name: "Install Maven"
+      shell: bash
+      run: |
+        wget https://downloads.apache.org/maven/maven-3/${{ inputs.maven-version }}/binaries/apache-maven-${{ inputs.maven-version }}-bin.tar.gz
+        tar -xzf apache-maven-${{ inputs.maven-version }}-bin.tar.gz -C /opt
+        sudo ln -s /opt/apache-maven-${{ inputs.maven-version }} /opt/maven
+  
+        echo "M2_HOME=/opt/maven" >> $GITHUB_ENV
+        echo "MAVEN_HOME=/opt/maven" >> $GITHUB_ENV
+        echo "PATH=$PATH:/opt/maven/bin" >> $GITHUB_ENV
+        echo "MAVEN_OPTS=-Dhttps.protocols=TLSv1.2 -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true --add-opens=java.base/java.lang=ALL-UNNAMED" >> $GITHUB_ENV
+        # set proxy if set in environment variables
+        if [ -n "$HTTPS_PROXY" ]; then
+          PROXY_HOST=$(echo "$HTTPS_PROXY" | sed -E 's|https?://||' | cut -d: -f1)
+          PROXY_PORT=$(echo "$HTTPS_PROXY" | sed -E 's|https?://||' | cut -d: -f2)
+          cat > ~/.m2/settings.xml <<EOF
+            <settings>
+              <proxies>
+                <proxy>
+                  <id>vfcz-proxy</id>
+                  <active>true</active>
+                  <protocol>https</protocol>
+                  <host>${PROXY_HOST}</host>
+                  <port>${PROXY_PORT}</port>
+                  <nonProxyHosts>*.oskarmobil.cz|localhost|raw.githubusercontent.com</nonProxyHosts>
+                </proxy>
+              </proxies>
+              </settings>
+        EOF
+        else
+          echo "No proxy set"
+        fi
+    - name: "Verify installation"
+      shell: bash
+      run: |
+        echo $(java -version)
+        echo $(mvn -version)

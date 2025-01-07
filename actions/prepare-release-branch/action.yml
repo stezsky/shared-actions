@@ -1,0 +1,75 @@
+name: 'Prepare release branch'
+description: 'Parse version tag and create release branch for version'
+author: 'petr.steckovic@vodafone.com'
+outputs:
+  RELEASE_BRANCH_NAME:
+    description: 'Name of the release branch'
+  VERSION_NUMBER:
+    description: 'Version number in format X.Y.Z'
+  RELEASE_TAG:
+    description: 'Release tag rX.Y.Z'
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine version number
+      shell: bash
+      run: |
+        RELEASE_TAG=${GITHUB_REF#refs/tags/}
+        VERSION_NUMBER_TAG=${GITHUB_REF#refs/tags/r}
+
+        # Validation (vX.Y.Z)
+        if [[ ! "$VERSION_NUMBER_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid release tag format: >>RELEASE_TAG<<. Expected format: rX.Y.Z"
+          exit 1
+        fi
+
+        # Split tag to major, minor a patch
+        VERSION_MAJOR=$(echo $VERSION_NUMBER_TAG | cut -d '.' -f 1)
+        VERSION_MINOR=$(echo $VERSION_NUMBER_TAG | cut -d '.' -f 2)
+        VERSION_PATCH=$(echo $VERSION_NUMBER_TAG | cut -d '.' -f 3)
+
+        # Propagate versions to next steps
+        echo "VERSION_NUMBER=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH" >> $GITHUB_ENV
+        echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+        echo "RELEASE_BRANCH_NAME=release/$VERSION_MAJOR.$VERSION_MINOR.x" >> $GITHUB_ENV
+    - name: Checkout the repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Clone all history
+    - name: Determine branches
+      shell: bash
+      run: |
+        # Determine branch name
+        BRANCH_NAMES=$(git branch --contains refs/tags/$RELEASE_TAG | grep -v 'HEAD' | sed 's/*//g' | awk '{print $1}')
+        if [ -z "$BRANCH_NAMES" ]; then
+          echo "Tag $RELEASE_TAG is not associated with any branch. Branch has been probably deleted."
+          exit 1
+        fi
+
+        if [[ "${BRANCH_NAMES}" == *"${RELEASE_BRANCH_NAME}"* ]]; then
+          echo "Tag $RELEASE_TAG is associated with ${RELEASE_BRANCH_NAME}."
+        elif [[ "$BRANCH_NAMES" == *"${{ github.event.repository.default_branch }}"* ]]; then
+          echo "Tag $RELEASE_TAG is associated with ${{ github.event.repository.default_branch }}"
+        else
+          echo "Tag $RELEASE_TAG is associated with invalid branches ($BRANCH_NAMES). Release tag must be on default branch or on release branch of the compatible version. Branch $BRANCH_NAMES is not allowed."
+          exit 1
+        fi
+    - name: Prepare release branch
+      shell: bash
+      run: |
+        # Checkout or create release branch if not exists
+        if git show-ref --verify --quiet refs/heads/${RELEASE_BRANCH_NAME}; then
+          echo "Checking out existing release branch ${RELEASE_BRANCH_NAME}"
+          git checkout ${RELEASE_BRANCH_NAME}
+        else
+          echo "Creating new release branch ${RELEASE_BRANCH_NAME} from tag $RELEASE_TAG"
+          git checkout -b ${RELEASE_BRANCH_NAME} ${RELEASE_TAG}
+        fi
+    - name: Verify the tag on the last commit of the release branch
+      shell: bash
+      run: |
+        # Test if release branch is up-to-date with the tag
+        if [[ $(git rev-parse HEAD) != $(git rev-parse $RELEASE_TAG) ]]; then
+            echo "Version tag ($RELEASE_TAG) must be on the last commit of release branch ${RELEASE_BRANCH_NAME}. Please update the release branch."
+            exit 1
+        fi

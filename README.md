@@ -7,5 +7,5 @@ Set of shared github actions for CI/CD pipelines.
 # How to debug
 
 ```bash
-act push -e act/event/tag-release-event.json 
+act push -e act/release-tag-event.json
 ```

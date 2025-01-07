@@ -1,0 +1,35 @@
+name: 'Increment version on default branch'
+description: 'Version on default branch must be incremented if major and minor version numbers are the same as on release branch'
+author: 'petr.steckovic@vodafone.com'
+inputs:
+  released-version:
+    description: Version has been released
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout default branch
+      shell: bash
+      run: |
+        git checkout ${{ github.event.repository.default_branch }}
+    - name: Determine increment required
+      id: increment-version-on-default-branch
+      shell: bash
+      run: |
+        currentVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        majorVersion=$(echo $currentVersion | cut -d'.' -f1)
+        minorVersion=$(echo $currentVersion | cut -d'.' -f2)
+        
+        #Set true to increment variable if  "${{ inputs.released-version }}" == "${majorVersion}.${minorVersion}" else otherwise
+        
+        if [[ "${{ inputs.released-version }}" == "${majorVersion}.${minorVersion}" ]]; then
+          echo "incrementDefaultBranchVersion=true" >> $GITHUB_ENV
+        else
+          echo "No increment required"
+        fi
+    - name: Bump default branch to next release
+      if: ${{ env.incrementDefaultBranchVersion == 'true' }}
+      uses: stezsky/shared-actions/actions/bump-pom@main
+      with:
+        version: ${{ inputs.released-version }}-SNAPSHOT
+        increment-minor: true

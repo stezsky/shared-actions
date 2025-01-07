@@ -1,0 +1,70 @@
+name: 'Bump pom version'
+description: 'Bump pom version and prepare commit'
+author: 'petr.steckovic@vodafone.com'
+inputs:
+  version:
+    description: 'Version to set. If not set, version will be taken from pom.xml'
+    required: false
+  increment-major:
+    description: 'Increment major version'
+    required: false
+    default: false
+  increment-minor:
+    description: 'Increment minor version'
+    required: false
+    default: false
+  increment-patch:
+    description: 'Increment patch version'
+    required: false
+    default: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set maven version
+      id: set-maven-version
+      run: |
+        # if version is not set, get it from pom.xml
+        if [[ -z "${{ github.event.inputs.version }}" ]]; then
+          currentVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        else
+          currentVersion=${{ github.event.inputs.version }}
+        fi 
+        
+        # Split version to major, minor, patch and snapshot
+        majorVersion=$(echo $currentVersion | cut -d'.' -f1)
+        minorVersion=$(echo $currentVersion | cut -d'.' -f2)
+        patchVersion=$(echo $currentVersion | cut -d'.' -f3 | sed 's/-SNAPSHOT//')
+        snapshot=$(echo $currentVersion | grep -o SNAPSHOT)
+        
+        # Increment version if needed
+        if [[ "${{ github.event.inputs.increment-major }}" == "true" ]]; then
+          majorVersion=$((majorVersion + 1))
+          minorVersion=0
+          patchVersion=0
+        elif [[ "${{ github.event.inputs.increment-minor }}" == "true" ]]; then
+          minorVersion=$((minorVersion + 1))
+          patchVersion=0
+        elif [[ "${{ github.event.inputs.increment-patch }}" == "true" ]]; then
+          patchVersion=$((patchVersion + 1))
+        fi
+        
+        # Set new version
+        newMavenVersion=${majorVersion}.${minorVersion}.${patchVersion}${snapshot}
+        echo "newMavenVersion=$newMavenVersion" >> $GITHUB_ENV
+        
+        mvn versions:set -DnewVersion=${newMavenVersion}
+        mvn versions:commit
+    - name: Validate no SNAPSHOT dependencies
+      if: ${{ !contains(env.newMavenVersion, '-SNAPSHOT') }}
+      run: |
+        mvn enforcer:enforce -Drules=requireReleaseDeps
+    - name: Bump version
+      run: |
+        echo "Committing new version: ${{ steps.set-maven-version.outputs.newMavenVersion }}"
+        if [[ "${{ steps.set-maven-version.outputs.newMavenVersion }}" == *SNAPSHOT* ]]; then
+          git commit -am "[Release bot] Snapshot version bumped to ${{ steps.set-maven-version.outputs.newMavenVersion }}"
+        else
+          git commit -am "[Release bot] Release version bumped to ${{ steps.set-maven-version.outputs.newMavenVersion }}"
+          git tag "v${{ steps.set-maven-version.outputs.newMavenVersion }}"
+        fi

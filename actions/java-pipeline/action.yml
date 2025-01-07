@@ -1,0 +1,10 @@
+name: 'Java Service Pipeline'
+description: 'Java service pipeline'
+author: 'petr.steckovic@vodafone.com'
+runs:
+  using: 'composite'
+  steps:
+    - name: Java pipeline
+      shell: bash
+      run: |
+        echo "Run Java pipeline on actually checked out branch"

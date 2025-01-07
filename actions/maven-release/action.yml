@@ -1,0 +1,46 @@
+name: 'Maven release'
+description: 'Release maven branch'
+author: 'petr.steckovic@vodafone.com'
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare release branch
+      id: prepare-release-branch
+      uses: stezsky/shared-actions/actions/prepare-release-branch@main
+
+    - name: Setup Maven Build
+      uses: stezsky/shared-actions/actions/setup-maven-build@main
+
+    - name: Checkout release branch
+      shell: bash
+      run: |
+        git checkout ${{ steps.prepare-release-branch.outputs.RELEASE_BRANCH_NAME }}
+
+    - name: Bump release version
+      id: bump-release
+      uses: stezsky/shared-actions/actions/bump-pom@main
+      with:
+        version: ${{ steps.prepare-release-branch.outputs.VERSION_NUMBER }}
+
+#    - name: Build Release
+#      id: build-release
+#      uses: stezsky/shared-actions/actions/java-pipeline@main
+
+    - name: Bump next patch
+      id: bump-next-patch
+      uses: stezsky/shared-actions/actions/bump-pom@main
+      with:
+        version: ${{ steps.prepare-release-branch.outputs.VERSION_NUMBER }}-SNAPSHOT
+        increment-patch: true
+
+    # Increment version on default branch
+    - name: Bump default branch version
+      uses: stezsky/shared-actions/actions/bump-default-branch@main
+      with:
+        released-version: ${{ steps.prepare-release-branch.outputs.VERSION_NUMBER }}
+
+    - name: Push all changes
+      shell: bash
+      run: |
+        git push --all origin # Push all branches
+        git push --tags # Push tags

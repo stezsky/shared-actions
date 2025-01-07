@@ -1,4 +1,4 @@
-name: 'Increment version on default branch'
+name: 'Bump version on default branch'
 description: 'Version on default branch must be incremented if major and minor version numbers are the same as on release branch'
 author: 'petr.steckovic@vodafone.com'
 inputs:
@@ -19,8 +19,6 @@ runs:
         currentVersion=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
         majorVersion=$(echo $currentVersion | cut -d'.' -f1)
         minorVersion=$(echo $currentVersion | cut -d'.' -f2)
-        
-        #Set true to increment variable if  "${{ inputs.released-version }}" == "${majorVersion}.${minorVersion}" else otherwise
         
         if [[ "${{ inputs.released-version }}" == "${majorVersion}.${minorVersion}" ]]; then
           echo "incrementDefaultBranchVersion=true" >> $GITHUB_ENV

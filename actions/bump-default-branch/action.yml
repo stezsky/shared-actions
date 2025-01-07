@@ -26,7 +26,7 @@ runs:
         
         echo "Version: ${currentMajorVersion}.${currentMinorVersion} vs ${releasedMajorVersion}.${releasedMinorVersion}"
                 
-        if [[ "${releasedMajorVersion}.${releasedMinorVersion}" == "${currentMajorVersion}.${currentMinorVersion}" ]]; then
+        if [[ "${releasedMajorVersion}.${releasedMinorVersion}" != "${currentMajorVersion}.${currentMinorVersion}" ]]; then
           echo "incrementDefaultBranchVersion=true" >> $GITHUB_ENV
         else
           echo "No increment required"
